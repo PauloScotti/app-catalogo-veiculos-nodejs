@@ -1,22 +1,25 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Catálogo de Veículos
 
-## Getting Started
+Projeto de catálogo de veículos desenvolvido com Nodejs e next.
 
-First, run the development server:
+### Tenologias Utilizadas
 
-```bash
-npm run dev
-# or
-yarn dev
-```
+- Cosmic.js 4.2.10
+- Nextjs 12.3.1
+- Nodejs 16.14.0
+- jsonwebtoken 8.5.1
+- md5 2.3.0
+- mongoose 6.6.4
+- multer 1.4.5-lts.1
+- nextjs-cors 2.1.1
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Configuração do ambiente de desenvolvimento
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
-
-[API routes](https://nextjs.org/docs/api-routes/introduction) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
-
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/api-routes/introduction) instead of React pages.
+1. clonar o repositório `git clone <url_git>` 
+1. fazer uma copia do arquivo `.env.example` e renomear o novo arquivo de `.env.local`
+1. configurar as variáveis de ambiente no arquivo `.env.local`
+1. instale as dependencias do projeto `npm i`
+1. execute o comando `npm run dev` para subir a aplicação
 
 ## Banco de Dados escolhido - MongoDB
 
