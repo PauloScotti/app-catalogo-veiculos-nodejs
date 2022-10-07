@@ -94,6 +94,25 @@ const handler = nc()
             return res.status(400).json({erro: 'Não foi possível obter dados dos usuários'});
         }
     
+    })
+    .delete(async (req: NextApiRequest, res: NextApiResponse<RespostaPadraoMsg | any[]>) => {
+        try{
+            const {id} = req?.query;
+            const usuario = await UsuarioModel.findById(id);
+
+            if(!usuario){
+                return res.status(400).json({erro: 'Usuário não encontrado'});
+            }
+
+            await UsuarioModel.findByIdAndDelete({_id : usuario._id}, usuario);
+
+            return res.status(200).json({ msg: "Usuário deletado com sucesso!"});
+
+        } catch(e){
+                console.log(e);
+                return res.status(500).json({erro: 'Não foi possível buscar o usuário'});
+        }
+
     });
 
     export const config = {
