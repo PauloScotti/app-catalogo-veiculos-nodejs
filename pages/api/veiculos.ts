@@ -28,7 +28,7 @@ const endpointPesquisaVeiculos = async (req: NextApiRequest, res: NextApiRespons
         } else {
                 const {filtro} = req.query;
 
-                if(!filtro && filtro.length < 2){
+                if(!filtro || filtro.length < 2){
                     return res.status(400).json({erro: 'Favor informar ao menos dois caracteres na busca'});
                 }
 
