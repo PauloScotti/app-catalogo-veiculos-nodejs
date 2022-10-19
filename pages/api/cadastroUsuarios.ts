@@ -2,7 +2,7 @@ import type {NextApiRequest, NextApiResponse} from 'next';
 import type {RespostaPadraoMsg} from '../../types/RespostaPadraMsg';
 import type {CadastroRequisicao} from '../../types/CadastroRequisicao';
 import {UsuarioModel} from '../../models/UsuarioModel';
-import { upload, uploadImagemCosmic } from '../../services/uploadImagemCosmic';
+import { upload } from '../../services/uploadImagemCosmic';
 import { conectaMongoDB } from '../../middlewares/conectaMongoDB';
 import nc from 'next-connect';
 import { politicaCORS } from '../../middlewares/politicaCORS';
