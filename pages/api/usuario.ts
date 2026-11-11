@@ -1,109 +1,78 @@
-import type { NextApiRequest, NextApiResponse } from "next";
-import { validarTokenJWT } from "../../middlewares/validarTokenJWT";
-import { RespostaPadraoMsg } from "../../types/RespostaPadraMsg";
-import { conectaMongoDB } from "../../middlewares/conectaMongoDB";
-import { UsuarioModel } from "../../models/UsuarioModel";
-import nc from 'next-connect';
-import { politicaCORS } from "../../middlewares/politicaCORS";
-import md5 from "md5";
-import { CadastroRequisicao } from "../../types/CadastroRequisicao";
+import { ehAdministrador } from '../../lib/autorizacao';
+import {
+  criarEndpoint,
+  ErroHttp,
+  RequisicaoAutenticada,
+  validar,
+} from '../../lib/endpoint';
+import { rotaAutenticada } from '../../lib/rotas';
+import { cadastrarUsuario } from '../../lib/usuarios';
+import { UsuarioModel } from '../../models/UsuarioModel';
+import { idQuerySchema } from '../../schemas/comum';
+import {
+  atualizarUsuarioSchema,
+  cadastroUsuarioSchema,
+  NIVEL_ADMINISTRADOR,
+} from '../../schemas/usuario';
 
-const handler = nc()
-    .post(async (
-        req: NextApiRequest,
-        res: NextApiResponse<RespostaPadraoMsg>
-    ) => {
+async function exigirAdministrador(usuarioId: string) {
+  if (!(await ehAdministrador(usuarioId))) {
+    throw new ErroHttp(403, 'Apenas administradores podem fazer isso');
+  }
+}
 
-        const usuario = req.body as CadastroRequisicao;
+const endpointUsuario = criarEndpoint<RequisicaoAutenticada>({
+  // Dados do usuário logado.
+  GET: async (req, res) => {
+    const usuario = await UsuarioModel.findById(req.usuarioId).select('-senha');
+    if (!usuario) {
+      throw new ErroHttp(400, 'Usuário não encontrado');
+    }
+    return res.status(200).json(usuario);
+  },
 
-        if (!usuario.nome || usuario.nome.length < 2) {
-            return res.status(400).json({ erro: "Nome não é válido" });
-        }
+  // Cadastro feito por um Administrador, que pode escolher o nível de acesso.
+  POST: async (req, res) => {
+    await exigirAdministrador(req.usuarioId);
+    const usuario = validar(cadastroUsuarioSchema, req.body);
 
-        if (!usuario.email || usuario.email.length < 5
-            || !usuario.email.includes('@')
-            || !usuario.email.includes('.')) {
-            return res.status(400).json({ erro: 'Email invalido' });
-        }
+    await cadastrarUsuario(usuario, req.usuarioId);
+    return res.status(200).json({ msg: 'Usuário cadastrado com sucesso' });
+  },
 
-        if (!usuario.senha || usuario.senha.length < 4) {
-            return res.status(400).json({ erro: "Senha não é válido" });
-        }
+  // Atualiza o próprio cadastro.
+  PUT: async (req, res) => {
+    const dados = validar(atualizarUsuarioSchema, req.body);
 
-        if (!usuario.nivelAcesso || usuario.nivelAcesso.length < 5) {
-            return res.status(400).json({ erro: "Nível de acesso não é válido" });
-        }
+    const usuario = await UsuarioModel.findById(req.usuarioId);
+    if (!usuario) {
+      throw new ErroHttp(400, 'Usuário não encontrado');
+    }
+    if (
+      dados.nivelAcesso &&
+      dados.nivelAcesso !== usuario.nivelAcesso &&
+      usuario.nivelAcesso !== NIVEL_ADMINISTRADOR
+    ) {
+      throw new ErroHttp(403, 'Apenas administradores podem fazer isso');
+    }
 
-        const usuariosComMesmoEmail = await UsuarioModel.find({ email: usuario.email });
-        if (usuariosComMesmoEmail && usuariosComMesmoEmail.length > 0) {
-            return res.status(400).json({ erro: "E-mail já cadastrado em outra conta" });
-        }
+    await UsuarioModel.updateOne({ _id: usuario._id }, { $set: dados });
+    return res.status(200).json({ msg: 'Usuário atualizado com sucesso!' });
+  },
 
-        const usuarioASerSalvo = {
-            nome: usuario.nome,
-            email: usuario.email,
-            senha: md5(usuario.senha),
-            nivelAcesso: usuario.nivelAcesso
-        }
+  DELETE: async (req, res) => {
+    await exigirAdministrador(req.usuarioId);
+    const { id } = validar(idQuerySchema, req.query);
 
-        await UsuarioModel.create(usuarioASerSalvo);
-        return res.status(200).json({ msg: "Usuário cadastrado com sucesso" });
+    if (id === req.usuarioId) {
+      throw new ErroHttp(400, 'Você não pode excluir a própria conta');
+    }
+    const usuario = await UsuarioModel.findByIdAndDelete(id);
+    if (!usuario) {
+      throw new ErroHttp(400, 'Usuário não encontrado');
+    }
+    return res.status(200).json({ msg: 'Usuário deletado com sucesso!' });
+  },
+});
 
-    })
-    .put(async (req: any, res: NextApiResponse<RespostaPadraoMsg> | any) => {
-        try {
-            const { userId } = req?.query;
-            const usuario = await UsuarioModel.findById(userId);
-            const { nome, nivelAcesso } = req.body;
-
-            if (!usuario) {
-                return res.status(400).json({ erro: 'Usuário não encontrado' });
-            }
-
-            await UsuarioModel.findByIdAndUpdate({ _id: usuario._id }, { $set: { nome : nome, nivelAcesso: nivelAcesso } });
-
-            return res.status(200).json({ msg: 'Usuário atualizado com sucesso!' });
-
-
-        } catch (e) {
-            console.log(e);
-            return res.status(400).json({ erro: `Não foi possível atualizar o usuário` + e });
-        }
-
-    })
-    .get(async (req: NextApiRequest, res: NextApiResponse<RespostaPadraoMsg> | any) => {
-
-        try {
-            const { userId } = req?.query;
-
-            const usuario = await UsuarioModel.findById(userId);
-            usuario.senha = null;
-            return res.status(200).json(usuario);
-
-        } catch (e) {
-            console.log(e);
-            return res.status(400).json({ erro: 'Não foi possível obter dados dos usuários' });
-        }
-
-    })
-    .delete(async (req: NextApiRequest, res: NextApiResponse<RespostaPadraoMsg | any[]>) => {
-        try {
-            const { id } = req?.query;
-            const usuario = await UsuarioModel.findById(id);
-
-            if (!usuario) {
-                return res.status(400).json({ erro: 'Usuário não encontrado' });
-            }
-
-            await UsuarioModel.findByIdAndDelete({ _id: usuario._id }, usuario);
-
-            return res.status(200).json({ msg: "Usuário deletado com sucesso!" });
-
-        } catch (e) {
-            console.log(e);
-            return res.status(500).json({ erro: 'Não foi possível buscar o usuário' });
-        }
-
-    });
-
-export default politicaCORS(validarTokenJWT(conectaMongoDB(handler)));
+export default rotaAutenticada(endpointUsuario);

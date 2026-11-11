@@ -1,19 +1,38 @@
-import type {NextApiRequest, NextApiResponse, NextApiHandler} from 'next';
-import type {RespostaPadraoMsg} from '../types/RespostaPadraMsg';
-import NextCors from 'nextjs-cors';
+import type { NextApiHandler } from 'next';
 
-export const politicaCORS = (handler : NextApiHandler) =>
-    async (req : NextApiRequest, res : NextApiResponse<RespostaPadraoMsg>) => {
-    try{
-        await NextCors(req, res, {
-            origin : '*',
-            methods : ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-            optionsSuccessStatus : 200, // navegadores antigos dao problema quando se retorna 204
-        });
-
-        return handler(req, res);
-    }catch(e){
-        console.log('Erro ao tratar a politica de CORS:', e);
-        return res.status(500).json({erro : 'Ocorreu erro ao tratar a politica de CORS'});
-    }
+// CORS_ORIGENS: lista separada por vírgula. Sem ela, qualquer origem é aceita
+// (a API autentica por token no cabeçalho, não por cookie).
+function origemPermitida(origem: string | undefined): string | null {
+  const permitidas = (process.env.CORS_ORIGENS ?? '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (permitidas.length === 0) {
+    return '*';
+  }
+  return origem && permitidas.includes(origem) ? origem : null;
 }
+
+export const politicaCORS =
+  (handler: NextApiHandler): NextApiHandler =>
+  async (req, res) => {
+    const origem = origemPermitida(req.headers.origin);
+    if (origem) {
+      res.setHeader('Access-Control-Allow-Origin', origem);
+      res.setHeader('Vary', 'Origin');
+    }
+    res.setHeader(
+      'Access-Control-Allow-Methods',
+      'GET, POST, PUT, DELETE, OPTIONS',
+    );
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Authorization, Content-Type',
+    );
+
+    if (req.method === 'OPTIONS') {
+      // navegadores antigos dão problema quando se retorna 204
+      return res.status(200).end();
+    }
+    return handler(req, res);
+  };

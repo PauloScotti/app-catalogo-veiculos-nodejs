@@ -1,23 +1,27 @@
-import type { NextApiRequest, NextApiResponse, NextApiHandler } from 'next';
+import type { NextApiHandler } from 'next';
 import mongoose from 'mongoose';
-import type {RespostaPadraoMsg} from '../types/RespostaPadraMsg';
 
-export const conectaMongoDB = (handler : NextApiHandler) => 
-    async (req: NextApiRequest, res: NextApiResponse<RespostaPadraoMsg | any[]>) => {
-
-    if(mongoose.connections[0].readyState) {
-        return handler(req, res);
+export const conectaMongoDB =
+  (handler: NextApiHandler): NextApiHandler =>
+  async (req, res) => {
+    if (mongoose.connection.readyState === 1) {
+      return handler(req, res);
     }
 
-    const {DB_CONEXAO_STRING} = process.env;
-
-    if(!DB_CONEXAO_STRING){
-        return res.status(500).json({erro: 'ENV de configuração do banco não informada'});
+    const { DB_CONEXAO_STRING } = process.env;
+    if (!DB_CONEXAO_STRING) {
+      return res
+        .status(500)
+        .json({ erro: 'ENV de configuração do banco não informada' });
     }
 
-    mongoose.connection.on('connected', () => console.log("Banco de Dados conectado com sucesso!"));
-    mongoose.connection.on('error', error => console.log(`Erro ao conectar com o banco de dados: ${error}`));
-    await mongoose.connect(DB_CONEXAO_STRING);
-
+    try {
+      await mongoose.connect(DB_CONEXAO_STRING);
+    } catch (erro) {
+      console.error('Erro ao conectar com o banco de dados:', erro);
+      return res
+        .status(500)
+        .json({ erro: 'Não foi possível conectar ao banco de dados' });
+    }
     return handler(req, res);
-}
+  };
