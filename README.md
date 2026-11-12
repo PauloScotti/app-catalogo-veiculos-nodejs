@@ -1,70 +1,92 @@
-# Catálogo de Veículos
+# Catálogo de Veículos — API
 
-Projeto de catálogo de veículos desenvolvido com Nodejs e next.
+API de um catálogo de veículos: qualquer pessoa consulta os veículos à venda; administradores mantêm o catálogo e os usuários.
 
-### Tenologias Utilizadas
+Construída sobre as API Routes do Next.js com MongoDB. Nasceu como projeto da formação Devaria e foi revisada para servir de referência: senhas com argon2, validação de entrada com zod, controle de acesso por nível e documentação OpenAPI navegável.
 
-- Cosmic.js 4.2.10
-- Nextjs 12.3.1
-- Nodejs 16.14.0
-- jsonwebtoken 8.5.1
-- md5 2.3.0
-- mongoose 6.6.4
-- multer 1.4.5-lts.1
-- nextjs-cors 2.1.1
+## Stack
 
-### Configuração do ambiente de desenvolvimento
+| Camada       | Tecnologia                                        |
+| ------------ | ------------------------------------------------- |
+| Runtime      | Node.js 22+, Next.js 16 (API Routes), TypeScript  |
+| Banco        | MongoDB com Mongoose 9                            |
+| Autenticação | JWT (HS256, validade de 7 dias), senhas em argon2 |
+| Validação    | zod 4                                             |
+| Documentação | OpenAPI 3.1 gerado dos schemas zod + Scalar       |
+| Imagens      | Cosmic (foto do veículo)                          |
+| Testes       | Vitest                                            |
 
-1. clonar o repositório `git clone <url_git>` 
-1. fazer uma copia do arquivo `.env.example` e renomear o novo arquivo de `.env.local`
-1. configurar as variáveis de ambiente no arquivo `.env.local`
-1. instale as dependencias do projeto `npm i`
-1. execute o comando `npm run dev` para subir a aplicação
+## Como rodar
 
-## Banco de Dados escolhido - MongoDB
+```bash
+npm install
+cp .env.example .env.local   # preencha os valores
+npm run dev
+```
 
-1. Passos
-1. Criar cadastro no site https://www.mongodb.com/
-1. Criar um Cluster
-1. Criar as variáveis de conexão nas ENVs
-1. Criar os modelos das tabelas
+A API sobe em `http://localhost:3000/api`. A documentação interativa fica em `http://localhost:3000/api/docs` e o documento OpenAPI em `http://localhost:3000/api/openapi`.
 
-## Cadastro de usuários (Rota Pública: cadastroUsuarios / Rota Privada: usuario)
+### Variáveis de ambiente
 
-No cadastro da rota pública, é possível criar contas sem estar logado e é necessário informar no body (form-data) o nome, email, senha e nível de acesso (nivelAcesso / se não informado entrará como Cliente por padrão).
-Já na rota privada, só é possível cadastrar após efetuar o login
-Para ter acesso a edição nas demais telas, é necessário criar usuar com nivel Administrador.
-O método usado é o Post
+| Variável                        | Obrigatória | Para quê                                                                 |
+| ------------------------------- | ----------- | ------------------------------------------------------------------------ |
+| `DB_CONEXAO_STRING`             | sim         | String de conexão do MongoDB                                             |
+| `CHAVE_JWT`                     | sim         | Segredo que assina os tokens                                             |
+| `BUCKET_FOTOS_VEICULOS`         | para upload | Slug do bucket no Cosmic                                                 |
+| `CHAVE_GRAVACAO_FOTOS_VEICULOS` | para upload | Chave de escrita do bucket                                               |
+| `CHAVE_LEITURA_FOTOS_VEICULOS`  | não         | Chave de leitura do bucket                                               |
+| `CORS_ORIGENS`                  | não         | Origens aceitas, separadas por vírgula. Sem ela, qualquer origem é aceita |
 
-## Cadastro de Veículos (Rota: cadastroVeiculos)
+### Primeiro administrador
 
-Para os cadastros de veículos, é necessário estar logado como Administrador.
-Os dados devem ser passados como JSON
-Para os veículos, deve-se informar nome, marca, modelo, valor e foto dos veículos
+O cadastro é público e sempre cria contas com o nível `Cliente`. Para ter o primeiro `Administrador`, cadastre a conta normalmente e promova-a:
 
-## Deletar Veículos (Rota: deletarVeiculos)
+```bash
+npm run admin:promover -- email@exemplo.com
+```
 
-Para deletar os veículos, basta informar o id na URL
-O método usado é o Delete
+Depois disso, um Administrador autenticado pode criar outros enviando `nivelAcesso` no cadastro ou pelo `POST /api/usuario`.
 
-## Atualizar usuários (Rota: usuarios)
+## Rotas
 
-Utilizar o form-data e informar os dados a serem atualizado (nome, nivelAcesso ou file)
+| Rota                                          | Método   | Acesso        |
+| --------------------------------------------- | -------- | ------------- |
+| `/api/login`                                  | POST     | público       |
+| `/api/cadastroUsuarios`                       | POST     | público       |
+| `/api/veiculos`                               | GET      | público       |
+| `/api/usuario`                                | GET, PUT | autenticado   |
+| `/api/usuario`                                | POST, DELETE | administrador |
+| `/api/pesquisaUsuarios`                       | GET      | administrador |
+| `/api/editarUsuarios`                         | PUT      | administrador |
+| `/api/cadastroVeiculos`                       | POST     | administrador |
+| `/api/editarVeiculos`                         | PUT      | administrador |
+| `/api/deletarVeiculos`                        | DELETE   | administrador |
 
-## Buscar usuário logado (Rota: usuarios)
+Rotas autenticadas esperam `Authorization: Bearer <token>`. O login devolve `token` para Cliente e `tokenAdm` para Administrador. Cadastro de usuário pela rota pública e cadastro/edição de veículo usam `multipart/form-data`; as demais usam JSON. Corpos, parâmetros e respostas de cada rota estão em `/api/docs`.
 
-Basta acessar a rota usuarios após efetuar o login para visualizar os dados do usuário. OBS.: Apenas Administradores tem acesso a essa funcionalidade
+## Estrutura
 
-## Editar Veículos (Rota: editarVeiculos)
+```
+lib/          regras reutilizáveis: senha, token, upload, autorização, OpenAPI
+middlewares/  CORS, conexão com o banco, token e exigência de administrador
+models/       modelos do Mongoose
+pages/api/    uma rota por arquivo
+schemas/      schemas zod (validação e origem da documentação)
+scripts/      utilitários de linha de comando
+tests/        testes unitários
+```
 
-Para atualizar veículo, basta informar via JSON os dados a serem alterados
-É possível alterar nome, marca, modelo, valor e foto dos veículos
+## Testes
 
-## Listar Veículos (Rota: veiculos)
+```bash
+npm test
+npm run typecheck
+```
 
-Para pesquisar apenas é necessário acessar a rota específica
-Nessas rotas não é necessário estar logado para acessar
+## Segurança
 
-## Política de CORS
-
-Esse projeto inclui políticas de CORS para as requisições HTTP seguras.
+- Senhas gravadas com argon2id. Contas antigas, em MD5, continuam entrando e têm a senha regravada em argon2 no primeiro login.
+- Toda entrada passa por um schema zod: campos desconhecidos são descartados e objetos no lugar de texto são rejeitados, o que fecha a injeção de operadores do MongoDB.
+- O nível de acesso é lido do banco a cada requisição; rebaixar um usuário vale imediatamente.
+- Upload aceita só imagens de até 5 MB.
+- Erros inesperados respondem com mensagem genérica; o detalhe fica no log do servidor.
